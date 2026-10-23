@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4f46e5">
+    <title>CallScribe-Africa — Réunions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        window.SUPABASE_URL = "https://mvbrflqszquaixiptkes.supabase.co";
+        window.SUPABASE_ANON_KEY = "sb_publishable_-mt_d4neuR7x6dWGLr9jHg_vKzwCQMU";
+    </script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800">
+    <!-- Écran d'authentification Supabase -->
+    <div id="authScreen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-50 px-4">
+        <div class="w-full max-w-md rounded-2xl border bg-white p-6 shadow-lg">
+            <h1 class="text-2xl font-bold text-indigo-700">🎙️ CallScribe-Africa</h1>
+            <p class="mt-1 text-sm text-slate-500">Connectez-vous pour accéder à vos réunions.</p>
+            <div class="mt-4 flex rounded-xl bg-slate-100 p-1 text-sm font-medium" role="tablist">
+                <button type="button" id="authTabLogin" class="flex-1 rounded-lg bg-white py-2 text-indigo-700 shadow-sm">Connexion</button>
+                <button type="button" id="authTabSignup" class="flex-1 rounded-lg py-2 text-slate-600">Inscription</button>
+            </div>
+            <form id="authForm" class="mt-4 space-y-3">
+                <div>
+                    <label class="block text-sm font-medium" for="authEmail">Email</label>
+                    <input id="authEmail" type="email" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium" for="authPassword">Mot de passe</label>
+                    <input id="authPassword" type="password" required minlength="6" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <p id="authError" class="hidden rounded-lg bg-red-50 p-3 text-sm text-red-700" role="alert"></p>
+                <button type="submit" id="authSubmit" class="w-full rounded-lg bg-indigo-600 px-4 py-2.5 font-medium text-white hover:bg-indigo-700">Se connecter</button>
+            </form>
+        </div>
+    </div>
+    <div id="appShell" class="hidden">
+        <div class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold">🎙️ CallScribe-Africa</h1>
+                <p class="mt-1 text-sm text-indigo-100">Vos réunions, décisions et actions au même endroit.</p>
+            </div>
+            <div class="relative w-full sm:max-w-xs">
+                <label for="globalSearch" class="sr-only">Rechercher une réunion ou une action</label>
+                <input id="globalSearch" type="search" autocomplete="off" placeholder="Rechercher partout…" class="w-full rounded-lg border border-indigo-400 bg-indigo-600 px-3 py-2 text-sm text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-white">
+                <div id="globalSearchResults" class="absolute left-0 right-0 top-full z-20 mt-1 hidden max-h-80 overflow-y-auto rounded-lg border bg-white p-2 text-slate-800 shadow-lg" role="listbox" aria-live="polite" aria-label="Résultats de recherche"></div>
+            </div>
+            <nav class="flex flex-wrap gap-2" aria-label="Navigation principale">
+                <button class="nav-btn rounded-lg bg-indigo-600 px-3 py-2 text-sm hover:bg-indigo-500" data-view="dashboard">Tableau de bord</button>
+                <button class="nav-btn rounded-lg bg-indigo-600 px-3 py-2 text-sm hover:bg-indigo-500" data-view="history">Historique</button>
+                <button class="nav-btn rounded-lg bg-indigo-600 px-3 py-2 text-sm hover:bg-indigo-500" data-view="tasks">Actions</button>
+                <button class="nav-btn rounded-lg bg-indigo-600 px-3 py-2 text-sm hover:bg-indigo-500" data-view="settings">Paramètres</button>
+                <button class="nav-btn rounded-lg bg-indigo-600 px-3 py-2 text-sm hover:bg-indigo-500" data-view="team">Équipe</button>
+                <button class="nav-btn rounded-lg bg-white px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50" data-view="new">+ Nouvelle réunion</button>
+                <button id="signOutBtn" class="rounded-lg bg-red-500 px-3 py-2 text-sm font-medium text-white hover:bg-red-600">Déconnexion</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 py-8">
+        <section id="view-dashboard" class="app-view space-y-6" aria-labelledby="dashboardTitle">
+            <div class="flex flex-wrap items-end justify-between gap-3">
+                <div><h2 id="dashboardTitle" class="text-2xl font-bold">Tableau de bord</h2><p class="mt-1 text-sm text-slate-500">Vue d’ensemble de vos réunions et suivis.</p></div>
+                <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700" data-go="new">Analyser une réunion</button>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-3">
+                <article class="rounded-xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Réunions analysées</p><p id="statMeetings" class="mt-2 text-3xl font-bold text-indigo-700">0</p></article>
+                <article class="rounded-xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Actions à suivre</p><p id="statOpen" class="mt-2 text-3xl font-bold text-amber-600">0</p></article>
+                <article class="rounded-xl border bg-white p-5 shadow-sm"><p class="text-sm text-slate-500">Actions terminées</p><p id="statDone" class="mt-2 text-3xl font-bold text-emerald-600">0</p></article>
+            </div>
+            <section class="rounded-xl border bg-white p-5 shadow-sm" aria-labelledby="recentTitle">
+                <div class="mb-4 flex items-center justify-between"><h3 id="recentTitle" class="font-semibold">Réunions récentes</h3><button class="text-sm font-medium text-indigo-700 hover:underline" data-go="history">Voir l’historique</button></div>
+                <div id="recentMeetings" class="divide-y"></div>
+            </section>
+        </section>
+
+        <section id="view-history" class="app-view hidden space-y-5" aria-labelledby="historyTitle">
+            <div><h2 id="historyTitle" class="text-2xl font-bold">Historique des réunions</h2><p class="mt-1 text-sm text-slate-500">Recherchez, consultez ou supprimez vos comptes-rendus enregistrés sur cet appareil.</p></div>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <label class="text-sm font-medium">Recherche<input id="historySearch" type="search" placeholder="Titre, participant…" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"></label>
+                <label class="text-sm font-medium">Depuis<input id="historyFrom" type="date" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2"></label>
+                <label class="text-sm font-medium">Jusqu’au<input id="historyTo" type="date" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2"></label>
+                <label class="text-sm font-medium">Trier par<select id="historySort" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option value="newest">Plus récentes</option><option value="oldest">Plus anciennes</option><option value="title">Titre (A–Z)</option></select></label>
+            </div>
+            <div id="historyList" class="space-y-3" aria-live="polite"></div>
+        </section>
+
+        <section id="view-detail" class="app-view hidden" aria-labelledby="detailTitle">
+            <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <button class="text-sm font-medium text-indigo-700 hover:underline" data-go="history">← Retour à l’historique</button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" id="detailExportPdf" class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition">
+                        📄 Exporter en PDF Pro
+                    </button>
+                    <button type="button" id="detailExportWord" class="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 transition">
+                        📝 Exporter en Word (.docx)
+                    </button>
+                    <button type="button" id="detailEditToggle" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50 transition">✏️ Modifier</button>
+                    <button type="button" id="detailCopy" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50 transition">📋 Copier</button>
+                    <button type="button" id="detailMarkdown" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50 transition">.md</button>
+                    <button type="button" id="detailDownload" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50 transition">.txt</button>
+                </div>
+            </div>
+            <form id="meetingEditForm" class="mb-5 hidden space-y-3 rounded-xl border bg-white p-4 shadow-sm">
+                <label class="block text-sm font-medium">Titre<input id="editMeetingTitle" maxlength="120" required class="mt-1 w-full rounded-lg border px-3 py-2"></label>
+                <div class="grid gap-3 sm:grid-cols-2"><label class="block text-sm font-medium">Date<input id="editMeetingDate" type="date" class="mt-1 w-full rounded-lg border px-3 py-2"></label><label class="block text-sm font-medium">Participants<input id="editMeetingParticipants" maxlength="300" class="mt-1 w-full rounded-lg border px-3 py-2"></label></div>
+                <label class="block text-sm font-medium">Résumé<textarea id="editMeetingSummary" rows="4" class="mt-1 w-full rounded-lg border px-3 py-2"></textarea></label>
+                <div class="flex gap-2"><button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white" type="submit">Enregistrer</button><button id="cancelMeetingEdit" class="rounded-lg border px-4 py-2 text-sm" type="button">Annuler</button></div>
+            </form>
+            <article class="space-y-5 rounded-xl border bg-white p-6 shadow-sm">
+                <div class="border-b pb-4"><h2 id="detailTitle" class="text-2xl font-bold"></h2><p id="detailMeta" class="mt-2 text-sm text-slate-500"></p></div>
+                <div><h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-indigo-600">Résumé exécutif</h3><p id="detailSummary" class="whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-sm leading-6"></p></div>
+                <div><h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-indigo-600">Actions à mener</h3><div id="detailActions" class="space-y-2"></div></div>
+                <details id="transcriptBlock" class="hidden"><summary class="cursor-pointer font-semibold text-indigo-700">Afficher la transcription</summary><p id="detailTranscript" class="mt-3 whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-sm leading-6"></p></details>
+                <p id="detailStatus" class="hidden text-sm text-emerald-700" role="status" aria-live="polite"></p>
+            </article>
+        </section>
+
+        <section id="view-tasks" class="app-view hidden space-y-5" aria-labelledby="tasksTitle">
+            <div><h2 id="tasksTitle" class="text-2xl font-bold">Suivi des actions</h2><p class="mt-1 text-sm text-slate-500">Attribuez un responsable, une échéance et un statut aux actions détectées.</p></div>
+            <label class="block text-sm font-medium">Rechercher une action<input id="taskSearch" type="search" placeholder="Mot-clé, responsable ou réunion…" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2"></label>
+            <div class="flex flex-wrap items-end justify-between gap-3"><div class="grid flex-1 gap-3 sm:grid-cols-2"><label class="text-sm font-medium">Filtrer par statut<select id="taskFilter" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option value="all">Tous les statuts</option><option value="À faire">À faire</option><option value="En cours">En cours</option><option value="Terminé">Terminé</option></select></label><label class="text-sm font-medium">Filtrer par responsable<select id="ownerFilter" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2"><option value="all">Toute l’équipe</option></select></label></div><button id="exportTasks" type="button" class="rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">Exporter les actions en CSV</button></div>
+            <div id="taskList" class="space-y-3"></div>
+        </section>
+
+        <section id="view-settings" class="app-view hidden" aria-labelledby="settingsTitle">
+            <div class="mb-5">
+                <h2 id="settingsTitle" class="text-2xl font-bold">Paramètres</h2>
+                <p class="mt-1 text-sm text-slate-500">Personnalisez vos préférences de transcription et de synthèse.</p>
+            </div>
+            <form id="settingsForm" class="max-w-2xl space-y-5 rounded-xl border bg-white p-6 shadow-sm">
+                <label class="block text-sm font-medium">Langue de transcription
+                    <select id="settingLanguage" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+                        <option value="fr">Français</option>
+                        <option value="en">English</option>
+                        <option value="sw">Kiswahili</option>
+                        <option value="ar">العربية</option>
+                    </select>
+                </label>
+                <label class="block text-sm font-medium">Format de compte-rendu
+                    <select id="settingFormat" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+                        <option value="concise">Synthétique (décisions, points clés et actions)</option>
+                        <option value="detailed">Détaillé (contexte complet, arguments et arbitrages)</option>
+                    </select>
+                </label>
+                <div class="rounded-lg bg-slate-50 p-4 border border-slate-200">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">État du service d’analyse</p>
+                    <div class="mt-2 flex items-center gap-2">
+                        <span id="serviceStatusDot" class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                        <span id="serviceStatusText" class="text-sm font-medium text-slate-700">Moteur IA connecté et opérationnel</span>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <button class="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700" type="submit">Enregistrer les préférences</button>
+                    <p id="settingsStatus" class="text-sm text-emerald-700" role="status" aria-live="polite"></p>
+                </div>
+            </form>
+        </section>
+
+        <section id="view-team" class="app-view hidden space-y-5" aria-labelledby="teamTitle">
+            <div><h2 id="teamTitle" class="text-2xl font-bold">Équipe</h2><p class="mt-1 text-sm text-slate-500">Gérez une liste locale de membres pour attribuer les actions.</p></div>
+            <form id="teamForm" class="flex flex-col gap-3 rounded-xl border bg-white p-4 shadow-sm sm:flex-row"><label class="flex-1"><span class="sr-only">Nom du membre</span><input id="memberName" maxlength="80" required placeholder="Nom du membre" class="w-full rounded-lg border border-slate-300 px-3 py-2"></label><label class="flex-1"><span class="sr-only">Adresse e-mail (facultative)</span><input id="memberEmail" type="email" maxlength="120" placeholder="Adresse e-mail (facultative)" class="w-full rounded-lg border border-slate-300 px-3 py-2"></label><button class="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700">Ajouter un membre</button></form>
+            <div id="teamList" class="space-y-3"></div>
+        </section>
+
+        <section id="view-new" class="app-view hidden" aria-labelledby="formTitle">
+            <div class="mb-5"><h2 id="formTitle" class="text-2xl font-bold">Nouvelle réunion à analyser</h2><p class="mt-1 text-sm text-slate-500">Ajoutez un enregistrement pour générer un compte-rendu structuré.</p></div>
+            <form id="uploadForm" class="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm" novalidate>
+                <div><label for="meetingTitle" class="mb-1 block text-sm font-medium">Titre de la réunion <span aria-hidden="true">*</span></label><input type="text" id="meetingTitle" name="title" required maxlength="120" autocomplete="off" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ex. : Point commercial — Projet X"></div>
+                <div class="grid gap-4 sm:grid-cols-2"><div><label for="meetingDate" class="mb-1 block text-sm font-medium">Date de la réunion <span class="font-normal text-slate-500">(facultatif)</span></label><input type="date" id="meetingDate" name="date" class="w-full rounded-lg border border-slate-300 px-3 py-2"></div><div><label for="participants" class="mb-1 block text-sm font-medium">Participants <span class="font-normal text-slate-500">(facultatif)</span></label><input type="text" id="participants" name="participants" maxlength="300" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="Ex. : Amina, Paul, Fatou"></div></div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium">Source audio de la réunion <span aria-hidden="true" class="text-red-500">*</span></label>
+                    
+                    <!-- Onglets de sélection du mode -->
+                    <div class="mb-4 flex rounded-xl bg-slate-100 p-1 text-sm font-medium" role="tablist" aria-label="Mode d'ajout audio">
+                        <button type="button" id="tabUploadBtn" role="tab" aria-selected="true" class="flex-1 rounded-lg bg-white py-2 text-indigo-700 shadow-sm transition hover:text-indigo-800">
+                            📁 Importer un fichier
+                        </button>
+                        <button type="button" id="tabRecordBtn" role="tab" aria-selected="false" class="flex-1 rounded-lg py-2 text-slate-600 transition hover:text-slate-900">
+                            🎙️ Enregistrer en direct
+                        </button>
+                    </div>
+
+                    <!-- Mode 1 : Import de fichier audio -->
+                    <div id="panelUpload">
+                        <label id="dropZone" for="audioFile" class="flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed border-slate-300 px-4 py-8 text-center transition hover:border-indigo-400 hover:bg-indigo-50 focus-within:ring-2 focus-within:ring-indigo-500">
+                            <span class="text-sm font-medium text-slate-700">Déposez votre fichier audio ici</span>
+                            <span class="my-1 text-xs text-slate-400">ou</span>
+                            <span class="rounded-md bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700">Choisir un fichier</span>
+                            <span class="mt-2 text-xs text-slate-500">MP3, WAV, M4A, WEBM ou OGG · 50 Mo maximum</span>
+                            <input type="file" id="audioFile" name="audio" accept=".mp3,.wav,.m4a,.webm,.ogg,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/webm,audio/ogg" class="sr-only">
+                        </label>
+                    </div>
+
+                    <!-- Mode 2 : Enregistrement micro en direct -->
+                    <div id="panelRecord" class="hidden rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
+                        <!-- État initial : Prêt à enregistrer -->
+                        <div id="recordIdleState" class="space-y-4">
+                            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                                <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-800">Enregistrer depuis le micro</h3>
+                                <p class="mt-1 text-xs text-slate-500">Capturez la réunion directement depuis votre navigateur avec aperçu audio en temps réel.</p>
+                            </div>
+                            <button type="button" id="startRecordBtn" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition">
+                                <span class="h-2.5 w-2.5 rounded-full bg-white animate-pulse"></span>
+                                Démarrer l’enregistrement
+                            </button>
+                        </div>
+
+                        <!-- État actif : En cours d'enregistrement -->
+                        <div id="recordActiveState" class="hidden space-y-4">
+                            <div class="flex items-center justify-center gap-2 text-sm font-semibold text-red-600">
+                                <span id="recordIndicator" class="h-3 w-3 rounded-full bg-red-600 animate-ping"></span>
+                                <span id="recordStatusText">Enregistrement en direct...</span>
+                            </div>
+                            
+                            <div class="font-mono text-3xl font-bold tracking-wider text-slate-800" id="recordTimer">00:00</div>
+                            
+                            <!-- Visualiseur sonore dynamique -->
+                            <canvas id="recordVisualizer" class="mx-auto h-16 w-full max-w-md rounded-lg bg-slate-900 shadow-inner" width="400" height="64"></canvas>
+                            
+                            <div class="flex flex-wrap items-center justify-center gap-2 pt-2">
+                                <button type="button" id="pauseRecordBtn" class="rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100">
+                                    ⏸️ Pause
+                                </button>
+                                <button type="button" id="stopRecordBtn" class="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-indigo-700">
+                                    ⏹️ Terminer et valider
+                                </button>
+                                <button type="button" id="cancelRecordBtn" class="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
+                                    ✕ Annuler
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Détails et prévisualisation du fichier audio sélectionné/enregistré -->
+                    <div id="fileDetails" class="mt-4 hidden rounded-xl border border-slate-200 bg-slate-50 p-4" aria-live="polite">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <span id="fileBadge" class="rounded bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">Fichier prêt</span>
+                                <p id="fileName" class="break-all text-sm font-medium text-slate-800"></p>
+                            </div>
+                            <button type="button" id="removeFileBtn" class="text-sm font-medium text-red-600 hover:underline">Retirer</button>
+                        </div>
+                        <audio id="audioPreview" class="mt-3 hidden w-full rounded-md" controls></audio>
+                    </div>
+                </div>
+                <p id="errorMessage" class="hidden rounded-lg bg-red-50 p-3 text-sm text-red-700" role="alert"></p><div class="flex flex-col gap-3 sm:flex-row"><button type="submit" id="submitBtn" class="flex flex-1 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">Lancer l’analyse par l’IA</button><button type="reset" class="rounded-lg border border-slate-300 px-4 py-2.5 font-medium hover:bg-slate-50">Réinitialiser</button></div>
+            </form>
+            <section id="loader" class="mt-5 hidden rounded-xl border border-indigo-100 bg-white p-6" role="status" aria-live="polite" aria-atomic="true"><h2 class="font-semibold">Analyse en cours…</h2><ol class="mt-4 space-y-3 text-sm" aria-label="Étapes de traitement"><li id="stepUpload" class="flex items-center gap-3 text-indigo-700"><span class="stepIcon flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 font-semibold">1</span><span>Envoi du fichier</span></li><li id="stepAnalyze" class="flex items-center gap-3 text-slate-500"><span class="stepIcon flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 font-semibold">2</span><span>Transcription et analyse</span></li><li id="stepResult" class="flex items-center gap-3 text-slate-500"><span class="stepIcon flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 font-semibold">3</span><span>Réception du compte-rendu</span></li></ol><p id="uploadProgress" class="mt-3 text-xs text-slate-500"></p></section>
+        </section>
+    </main>
+    <footer class="mt-8 border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-400">CallScribe-Africa &bull; Propulsé par n8n & IA</footer>
+
+    <script>
+        // ================= CLIENT SUPABASE =================
+        const supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+        let currentUser = null;
+        let meetings = [];
+        let tasks = [];
+        let team = [];
+        let settings = { language: 'fr', format: 'concise' };
+
+        const $ = (id) => document.getElementById(id);
+        const API_ENDPOINT = (window.location.protocol.startsWith('http'))
+            ? `${window.location.origin}/api/analyze`
+            : 'http://127.0.0.1:8000/api/analyze';
+        let activeMeetingId = null;
+        let previewUrl = null;
+        let reportText = '';
+        const MAX_FILE_SIZE = 50 * 1024 * 1024;
+        const ALLOWED_EXTENSIONS = ['mp3', 'wav', 'm4a', 'webm', 'ogg'];
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+        }
+        // ================= AUTH (Supabase) =================
+        let authMode = 'login';
+        function setAuthMode(mode) {
+            authMode = mode;
+            const isLogin = mode === 'login';
+            $('authTabLogin').classList.toggle('bg-white', isLogin);
+            $('authTabLogin').classList.toggle('text-indigo-700', isLogin);
+            $('authTabLogin').classList.toggle('shadow-sm', isLogin);
+            $('authTabLogin').classList.toggle('text-slate-600', !isLogin);
+            $('authTabSignup').classList.toggle('bg-white', !isLogin);
+            $('authTabSignup').classList.toggle('text-indigo-700', !isLogin);
+            $('authTabSignup').classList.toggle('shadow-sm', !isLogin);
+            $('authTabSignup').classList.toggle('text-slate-600', isLogin);
+            $('authSubmit').textContent = isLogin ? 'Se connecter' : "S'inscrire";
+        }
+        $('authTabLogin').addEventListener('click', () => setAuthMode('login'));
+        $('authTabSignup').addEventListener('click', () => setAuthMode('signup'));
+
+        function showAuthError(msg) { const el = $('authError'); el.textContent = msg; el.classList.remove('hidden'); }
+        function hideAuthError() { $('authError').classList.add('hidden'); }
+
+        async function handleAuth(event) {
+            event.preventDefault();
+            hideAuthError();
+            const email = $('authEmail').value.trim();
+            const password = $('authPassword').value;
+            try {
+                let res;
+                if (authMode === 'login') res = await supabase.auth.signInWithPassword({ email, password });
+                else res = await supabase.auth.signUp({ email, password });
+                if (res.error) throw res.error;
+                const user = res.data && (res.data.user || (res.data.session && res.data.session.user));
+                if (user) { currentUser = user; await enterApp(); }
+            } catch (err) { showAuthError(err.message || 'Erreur d\'authentification.'); }
+        }
+        $('authForm').addEventListener('submit', handleAuth);
+
+        async function enterApp() {
+            $('authScreen').classList.add('hidden');
+            $('appShell').classList.remove('hidden');
+            await loadAllData();
+            renderDashboard();
+            checkBackendStatus();
+        }
+
+        async function signOut() {
+            await supabase.auth.signOut();
+            currentUser = null;
+            meetings = []; tasks = []; team = [];
+            $('appShell').classList.add('hidden');
+            $('authScreen').classList.remove('hidden');
+        }
+
+        // ================= DATA ACCESS (Supabase) =================
+        async function loadAllData() {
+            if (!currentUser) return;
+            const uid = currentUser.id;
+            const [mRes, tRes, teamRes, sRes] = await Promise.all([
+                supabase.from('meetings').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
+                supabase.from('tasks').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
+                supabase.from('team_members').select('*').eq('user_id', uid).order('created_at', { ascending: true }),
+                supabase.from('user_settings').select('*').eq('user_id', uid).maybeSingle()
+            ]);
+            meetings = (mRes.data || []).map((m) => ({
+                id: m.id, title: m.title, date: m.date, participants: m.participants || '',
+                summary: m.summary || '', transcript: m.transcript || '', createdAt: new Date(m.created_at).getTime(),
+                actions: []
+            }));
+            tasks = (tRes.data || []).map((t) => ({
+                id: t.id, meetingId: t.meeting_id, text: t.text, owner: t.owner || '',
+                due: t.due || '', priority: t.priority || 'Normale', status: t.status || 'À faire'
+            }));
+            // Reconstruire les actions de chaque réunion à partir des tâches liées
+            const actionsByMeeting = {};
+            tasks.forEach((t) => {
+                if (!t.meetingId) return;
+                (actionsByMeeting[t.meetingId] = actionsByMeeting[t.meetingId] || []).push(t.text);
+            });
+            meetings.forEach((m) => { m.actions = actionsByMeeting[m.id] || []; });
+            team = (teamRes.data || []).map((m) => ({ id: m.id, name: m.name, role: m.role || '', email: m.email || '' }));
+            if (sRes.data) settings = { language: sRes.data.language || 'fr', format: sRes.data.format || 'concise' };
+            if ($('settingLanguage')) $('settingLanguage').value = settings.language;
+            if ($('settingFormat')) $('settingFormat').value = settings.format;
+        }
+
+        async function sbInsertMeeting(meeting) {
+            const { error } = await supabase.from('meetings').insert({
+                id: meeting.id, user_id: currentUser.id, title: meeting.title,
+                date: meeting.date || null, participants: meeting.participants || null,
+                summary: meeting.summary, transcript: meeting.transcript
+            });
+            if (error) throw error;
+        }
+        async function sbUpdateMeeting(meeting) {
+            const { error } = await supabase.from('meetings').update({
+                title: meeting.title, date: meeting.date || null, participants: meeting.participants || null,
+                summary: meeting.summary, transcript: meeting.transcript
+            }).eq('id', meeting.id).eq('user_id', currentUser.id);
+            if (error) throw error;
+        }
+        async function sbDeleteMeeting(id) {
+            const { error } = await supabase.from('meetings').delete().eq('id', id).eq('user_id', currentUser.id);
+            if (error) throw error;
+        }
+        async function sbDeleteTasksByMeeting(meetingId) {
+            const { error } = await supabase.from('tasks').delete().eq('meeting_id', meetingId).eq('user_id', currentUser.id);
+            if (error) throw error;
+        }
+        async function sbInsertTask(task) {
+            const { error } = await supabase.from('tasks').insert({
+                id: task.id, user_id: currentUser.id, meeting_id: task.meetingId || null,
+                text: task.text, owner: task.owner || null, due: task.due || null,
+                priority: task.priority || 'Normale', status: task.status || 'À faire'
+            });
+            if (error) throw error;
+        }
+        async function sbUpdateTask(task) {
+            const { error } = await supabase.from('tasks').update({
+                text: task.text, owner: task.owner || null, due: task.due || null,
+                priority: task.priority || 'Normale', status: task.status || 'À faire'
+            }).eq('id', task.id).eq('user_id', currentUser.id);
+            if (error) throw error;
+        }
+        async function sbDeleteTask(id) {
+            const { error } = await supabase.from('tasks').delete().eq('id', id).eq('user_id', currentUser.id);
+            if (error) throw error;
+        }
+        async function sbInsertTeamMember(m) {
+            const { error } = await supabase.from('team_members').insert({
+                id: m.id, user_id: currentUser.id, name: m.name, role: m.role || null, email: m.email || null
+            });
+            if (error) throw error;
+        }
+        async function sbDeleteTeamMember(id) {
+            const { error } = await supabase.from('team_members').delete().eq('id', id).eq('user_id', currentUser.id);
+            if (error) throw error;
+        }
+        async function sbSaveSettings() {
+            const { error } = await supabase.from('user_settings').upsert({
+                user_id: currentUser.id, language: settings.language, format: settings.format,
+                updated_at: new Date().toISOString()
+            });
+            if (error) throw error;
+        }
+
+        // ================= INIT AUTH =================
+        (async () => {
+            const { data } = await supabase.auth.getSession();
+            if (data && data.session && data.session.user) {
+                currentUser = data.session.user;
+                await enterApp();
+            }
+        })();
+        supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_OUT') {
+                currentUser = null;
+                $('appShell').classList.add('hidden');
+                $('authScreen').classList.remove('hidden');
+            }
+        });
+
+        if ($('signOutBtn')) $('signOutBtn').addEventListener('click', signOut);
+
+        function showView(name) {
+            if (name !== 'new' && typeof isRecording !== 'undefined' && isRecording) {
+                if (!window.confirm('Un enregistrement audio est en cours. Quitter cette page va annuler la capture en cours. Continuer ?')) {
+                    return;
+                }
+                cancelRecording();
+            }
+            document.querySelectorAll('.app-view').forEach((view) => view.classList.toggle('hidden', view.id !== `view-${name}`));
+            document.querySelectorAll('.nav-btn').forEach((button) => {
+                const active = button.dataset.view === name;
+                button.classList.toggle('ring-2', active);
+                button.classList.toggle('ring-white', active);
+                if (active) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
+            });
+            $('globalSearchResults').classList.add('hidden');
+            if (name === 'dashboard') renderDashboard();
+            if (name === 'history') renderHistory();
+            if (name === 'tasks') renderTasks();
+            if (name === 'team') renderTeam();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => showView(button.dataset.view)));
+        document.querySelectorAll('[data-go]').forEach((button) => button.addEventListener('click', () => showView(button.dataset.go)));
+
+        function meetingRow(meeting) {
+            const meta = [meeting.date, meeting.participants].filter(Boolean).join(' · ') || 'Aucune information complémentaire';
+            return `<article class="flex flex-wrap items-center justify-between gap-3 py-4"><button class="min-w-0 flex-1 text-left" data-open-meeting="${escapeHtml(meeting.id)}"><span class="block truncate font-semibold text-indigo-700 hover:underline">${escapeHtml(meeting.title)}</span><span class="mt-1 block text-xs text-slate-500">${escapeHtml(meta)}</span></button><button class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50" data-delete-meeting="${escapeHtml(meeting.id)}">Supprimer</button></article>`;
+        }
+        function renderDashboard() {
+            $('statMeetings').textContent = meetings.length;
+            $('statOpen').textContent = tasks.filter((task) => task.status !== 'Terminé').length;
+            $('statDone').textContent = tasks.filter((task) => task.status === 'Terminé').length;
+            const recent = [...meetings].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5);
+            $('recentMeetings').innerHTML = recent.length ? recent.map(meetingRow).join('') : '<p class="py-6 text-sm text-slate-500">Aucune réunion pour le moment. Lancez votre première analyse.</p>';
+            bindMeetingButtons();
+        }
+        function renderHistory() {
+            const query = ($('historySearch').value || '').trim().toLocaleLowerCase('fr');
+            const from = $('historyFrom').value;
+            const to = $('historyTo').value;
+            const sort = $('historySort').value;
+            const matches = [...meetings].filter((item) => {
+                const searchable = `${item.title} ${item.date} ${item.participants}`.toLocaleLowerCase('fr');
+                const meetingDate = item.date || '';
+                return searchable.includes(query) && (!from || meetingDate >= from) && (!to || meetingDate <= to);
+            }).sort((a, b) => sort === 'title' ? a.title.localeCompare(b.title, 'fr') : sort === 'oldest' ? a.createdAt - b.createdAt : b.createdAt - a.createdAt);
+            $('historyList').innerHTML = matches.length ? matches.map(meetingRow).join('') : '<div class="rounded-xl border bg-white p-6 text-sm text-slate-600"><p>Aucune réunion ne correspond à ces critères.</p><button type="button" class="mt-3 font-medium text-indigo-700 hover:underline" id="clearHistoryFilters">Effacer les filtres</button></div>';
+            $('clearHistoryFilters')?.addEventListener('click', () => { $('historySearch').value = ''; $('historyFrom').value = ''; $('historyTo').value = ''; $('historySort').value = 'newest'; renderHistory(); });
+            bindMeetingButtons();
+        }
+        function bindMeetingButtons() {
+            document.querySelectorAll('[data-open-meeting]').forEach((button) => button.addEventListener('click', () => openMeeting(button.dataset.openMeeting)));
+            document.querySelectorAll('[data-delete-meeting]').forEach((button) => button.addEventListener('click', () => deleteMeeting(button.dataset.deleteMeeting)));
+        }
+        function openMeeting(id) {
+            const meeting = meetings.find((item) => item.id === id);
+            if (!meeting) return;
+            activeMeetingId = id;
+            $('meetingEditForm').classList.add('hidden');
+            $('editMeetingTitle').value = meeting.title || '';
+            $('editMeetingDate').value = meeting.date || '';
+            $('editMeetingParticipants').value = meeting.participants || '';
+            $('editMeetingSummary').value = meeting.summary || '';
+            $('detailTitle').textContent = meeting.title;
+            $('detailMeta').textContent = [meeting.date, meeting.participants, new Date(meeting.createdAt).toLocaleDateString('fr-FR')].filter(Boolean).join(' · ');
+            $('detailSummary').textContent = meeting.summary || 'Aucun résumé disponible.';
+            $('detailActions').innerHTML = meeting.actions.length ? meeting.actions.map((action) => `<p class="rounded-lg bg-slate-50 p-3 text-sm">• ${escapeHtml(action)}</p>`).join('') : '<p class="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">Aucune action spécifique identifiée.</p>';
+            $('transcriptBlock').classList.toggle('hidden', !meeting.transcript);
+            $('detailTranscript').textContent = meeting.transcript || '';
+            $('detailStatus').classList.add('hidden');
+            reportText = `Compte-rendu : ${meeting.title}\n${meeting.date || ''}\n${meeting.participants || ''}\n\nRésumé exécutif\n${meeting.summary || 'Aucun résumé disponible.'}\n\nActions à mener\n${meeting.actions.length ? meeting.actions.map((action) => `• ${action}`).join('\n') : 'Aucune action spécifique identifiée.'}`;
+            showView('detail');
+        }
+        async function deleteMeeting(id) {
+            const meeting = meetings.find((item) => item.id === id);
+            if (!meeting || !window.confirm(`Supprimer « ${meeting.title} » et les actions associées ? Cette opération est définitive.`)) return;
+            try {
+                await sbDeleteTasksByMeeting(id);
+                await sbDeleteMeeting(id);
+                meetings = meetings.filter((item) => item.id !== id);
+                tasks = tasks.filter((task) => task.meetingId !== id);
+                const current = document.querySelector('.app-view:not(.hidden)')?.id;
+                if (current === 'view-history') renderHistory(); else renderDashboard();
+            } catch (e) { window.alert('Erreur lors de la suppression.'); }
+        }
+        ['historySearch', 'historyFrom', 'historyTo', 'historySort'].forEach((id) => $(id).addEventListener(id === 'historySearch' ? 'input' : 'change', renderHistory));
+        $('globalSearch').addEventListener('input', () => {
+            const query = $('globalSearch').value.trim().toLocaleLowerCase('fr');
+            const results = $('globalSearchResults');
+            if (!query) { results.classList.add('hidden'); results.innerHTML = ''; return; }
+            const matchingMeetings = meetings.filter((item) => `${item.title} ${item.date} ${item.participants} ${item.summary}`.toLocaleLowerCase('fr').includes(query)).slice(0, 5);
+            const matchingTasks = tasks.filter((task) => `${task.text} ${task.owner} ${task.status}`.toLocaleLowerCase('fr').includes(query)).slice(0, 5);
+            results.innerHTML = [...matchingMeetings.map((item) => `<button type="button" role="option" data-search-meeting="${escapeHtml(item.id)}" class="block w-full rounded px-3 py-2 text-left text-sm hover:bg-indigo-50"><span class="font-medium">Réunion : ${escapeHtml(item.title)}</span><span class="block text-xs text-slate-500">${escapeHtml(item.date || 'Date non renseignée')}</span></button>`), ...matchingTasks.map((task) => `<button type="button" role="option" data-search-task="${escapeHtml(task.id)}" class="block w-full rounded px-3 py-2 text-left text-sm hover:bg-indigo-50"><span class="font-medium">Action : ${escapeHtml(task.text)}</span><span class="block text-xs text-slate-500">${escapeHtml(task.status || 'À faire')}</span></button>`)].join('') || '<p class="p-3 text-sm text-slate-500">Aucun résultat.</p>';
+            results.classList.remove('hidden');
+            results.querySelectorAll('[data-search-meeting]').forEach((button) => button.addEventListener('click', () => { $('globalSearch').value = ''; openMeeting(button.dataset.searchMeeting); results.classList.add('hidden'); }));
+            results.querySelectorAll('[data-search-task]').forEach((button) => button.addEventListener('click', () => { const task = tasks.find((item) => item.id === button.dataset.searchTask); $('globalSearch').value = ''; $('taskSearch').value = task?.text || ''; $('taskFilter').value = 'all'; $('ownerFilter').value = 'all'; showView('tasks'); results.classList.add('hidden'); }));
+        });
+        document.addEventListener('click', (event) => { if (!event.target.closest('#globalSearch') && !event.target.closest('#globalSearchResults')) $('globalSearchResults').classList.add('hidden'); });
+        $('detailCopy').addEventListener('click', async () => {
+            try { await navigator.clipboard.writeText(reportText); $('detailStatus').textContent = 'Compte-rendu copié dans le presse-papiers.'; }
+            catch { $('detailStatus').textContent = 'Copie impossible dans ce navigateur.'; }
+            $('detailStatus').classList.remove('hidden');
+        });
+        $('detailEditToggle').addEventListener('click', () => $('meetingEditForm').classList.toggle('hidden'));
+        $('cancelMeetingEdit').addEventListener('click', () => $('meetingEditForm').classList.add('hidden'));
+        $('meetingEditForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const meeting = meetings.find((item) => item.id === activeMeetingId);
+            if (!meeting) return;
+            meeting.title = $('editMeetingTitle').value.trim();
+            meeting.date = $('editMeetingDate').value;
+            meeting.participants = $('editMeetingParticipants').value.trim();
+            meeting.summary = $('editMeetingSummary').value.trim();
+            try { await sbUpdateMeeting(meeting); } catch (e) { window.alert('Erreur lors de la mise à jour.'); return; }
+            openMeeting(meeting.id);
+            $('detailStatus').textContent = 'Modifications enregistrées.';
+            $('detailStatus').classList.remove('hidden');
+        });
+        function generatePdfHtml(meeting, meetingTasks) {
+            const title = escapeHtml(meeting.title || 'Compte-Rendu de Réunion');
+            const date = escapeHtml(meeting.date || new Date().toLocaleDateString('fr-FR'));
+            const participants = escapeHtml(meeting.participants || 'Non spécifiés');
+            const printDate = new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+            const summaryLines = (meeting.summary || 'Aucun résumé disponible.').split('\n')
+                .map(line => {
+                    const trimmed = line.trim();
+                    if (!trimmed) return '';
+                    let html = escapeHtml(trimmed).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    if (trimmed.startsWith('### ')) {
+                        return `<h4 style="margin: 14px 0 4px; color: #4338ca; font-size: 11pt;">${html.replace(/^###\s*/, '')}</h4>`;
+                    }
+                    if (trimmed.startsWith('## ')) {
+                        return `<h3 style="margin: 18px 0 6px; color: #4338ca; font-size: 12pt; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">${html.replace(/^##\s*/, '')}</h3>`;
+                    }
+                    if (trimmed.startsWith('- ') || trimmed.startsWith('• ') || trimmed.startsWith('* ')) {
+                        return `<li style="margin-bottom: 4px;">${html.replace(/^[-•*]\s*/, '')}</li>`;
+                    }
+                    return `<p style="margin: 0 0 8px; line-height: 1.55;">${html}</p>`;
+                }).join('');
+
+            const actionRows = meetingTasks.length ? meetingTasks.map((t, idx) => `
+                <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                    <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; width: 35px;">${idx + 1}</td>
+                    <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: 500;">${escapeHtml(t.text)}</td>
+                    <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #475569;">${escapeHtml(t.owner || 'Non attribué')}</td>
+                    <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; white-space: nowrap; color: #475569;">${escapeHtml(t.due || 'À définir')}</td>
+                    <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">
+                        <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 8pt; font-weight: 600; background: ${t.priority === 'Haute' ? '#fee2e2; color: #991b1b;' : (t.priority === 'Basse' ? '#f1f5f9; color: #475569;' : '#e0e7ff; color: #3730a3;')}">${escapeHtml(t.priority || 'Normale')}</span>
+                    </td>
+                    <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">
+                        <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 8pt; font-weight: 600; background: ${t.status === 'Terminé' ? '#dcfce7; color: #166534;' : (t.status === 'En cours' ? '#dbeafe; color: #1e40af;' : '#fef3c7; color: #92400e;')}">${escapeHtml(t.status || 'À faire')}</span>
+                    </td>
+                </tr>
+            `).join('') : `
+                <tr>
+                    <td colspan="6" style="padding: 16px; border: 1px solid #e2e8f0; text-align: center; color: #64748b; font-style: italic;">
+                        Aucune action spécifique enregistrée pour cette séance.
+                    </td>
+                </tr>
+            `;
+
+            const transcriptSection = meeting.transcript ? `
+                <div style="margin-top: 25px; page-break-before: auto;">
+                    <h2 style="font-size: 13pt; color: #4338ca; border-bottom: 2px solid #4338ca; padding-bottom: 4px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        3. Annexe : Transcription des Échanges
+                    </h2>
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; font-size: 9pt; line-height: 1.6; color: #475569; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">${escapeHtml(meeting.transcript)}</div>
+                </div>
+            ` : '';
+
+            return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>${title} — Compte-Rendu CallScribe-Africa</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 18mm 16mm 20mm 16mm;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #1e293b;
+            line-height: 1.5;
+            background: #ffffff;
+            margin: 0;
+            padding: 24px;
+        }
+        @media print {
+            body { padding: 0; }
+            .no-print { display: none !important; }
+        }
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #4338ca;
+            padding-bottom: 12px;
+            margin-bottom: 18px;
+        }
+        .badge-brand {
+            font-size: 9pt;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: #4338ca;
+            text-transform: uppercase;
+        }
+        .doc-title {
+            font-size: 20pt;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 4px 0 0 0;
+        }
+        .meta-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 20px;
+            font-size: 9.5pt;
+        }
+        .meta-item strong {
+            color: #4338ca;
+        }
+        .section-title {
+            font-size: 13pt;
+            font-weight: 700;
+            color: #4338ca;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 4px;
+            margin: 22px 0 10px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .summary-box {
+            font-size: 10pt;
+            line-height: 1.55;
+            color: #334155;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 9pt;
+        }
+        th {
+            background-color: #4338ca;
+            color: #ffffff;
+            padding: 8px 10px;
+            text-align: left;
+            font-weight: 600;
+            border: 1px solid #3730a3;
+        }
+        .footer-note {
+            margin-top: 30px;
+            padding-top: 12px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 8pt;
+            color: #94a3b8;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+    <div class="header-bar">
+        <div>
+            <div class="badge-brand">🎙️ CallScribe-Africa &bull; Procès-Verbal Officiel</div>
+            <h1 class="doc-title">${title}</h1>
+        </div>
+        <div style="text-align: right; font-size: 8.5pt; color: #64748b;">
+            <div>Édité le ${printDate}</div>
+            <div style="font-weight: 600; color: #4338ca; margin-top: 2px;">DOCUMENT VALIDÉ</div>
+        </div>
+    </div>
+
+    <div class="meta-card">
+        <div class="meta-item"><strong>Date de séance :</strong> ${date}</div>
+        <div class="meta-item"><strong>Participants :</strong> ${participants}</div>
+        <div class="meta-item"><strong>Plateforme :</strong> CallScribe-Africa</div>
+        <div class="meta-item"><strong>Statut du rapport :</strong> Exécutif & Confidentiel</div>
+    </div>
+
+    <div>
+        <h2 class="section-title">1. Synthèse Exécutive</h2>
+        <div class="summary-box">${summaryLines}</div>
+    </div>
+
+    <div style="margin-top: 20px; page-break-inside: avoid;">
+        <h2 class="section-title">2. Plan d'Action & Décisions Retenues</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 35px; text-align: center;">N°</th>
+                    <th>Action à mener</th>
+                    <th style="width: 120px;">Responsable</th>
+                    <th style="width: 90px; text-align: center;">Échéance</th>
+                    <th style="width: 80px; text-align: center;">Priorité</th>
+                    <th style="width: 80px; text-align: center;">Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${actionRows}
+            </tbody>
+        </table>
+    </div>
+
+    ${transcriptSection}
+
+    <div class="footer-note">
+        <span>CallScribe-Africa &bull; Solution de transcription et synthèse de réunions</span>
+        <span>Document officiel &bull; Confidentiel</span>
+    </div>
+</body>
+</html>`;
+        }
+
+        function generateLocalWordFallback(meeting, meetingTasks) {
+            const html = generatePdfHtml(meeting, meetingTasks);
+            const wordContent = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset='utf-8'><title>${escapeHtml(meeting.title || 'Compte-rendu')}</title></head>
+<body>${html}</body></html>`;
+            const blob = new Blob(['\uFEFF', wordContent], { type: 'application/msword' });
+            const safeTitle = (meeting.title || 'compte-rendu')
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'compte_rendu';
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${safeTitle}.doc`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        async function exportMeetingToWord(meeting, meetingTasks) {
+            const exportBtn = $('detailExportWord');
+            const originalText = exportBtn.innerHTML;
+            exportBtn.innerHTML = '⏳ Génération Word…';
+            exportBtn.disabled = true;
+
+            try {
+                const docxUrl = (window.location.protocol.startsWith('http'))
+                    ? `${window.location.origin}/api/export/docx`
+                    : 'http://127.0.0.1:8000/api/export/docx';
+
+                const payload = {
+                    title: meeting.title || 'Compte-Rendu',
+                    date: meeting.date || '',
+                    participants: meeting.participants || '',
+                    summary: meeting.summary || '',
+                    actions: meetingTasks,
+                    transcript: meeting.transcript || ''
+                };
+
+                const res = await fetch(docxUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) throw new Error(`Erreur serveur (${res.status})`);
+
+                const blob = await res.blob();
+                const safeTitle = (meeting.title || 'compte-rendu')
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'compte_rendu';
+
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = `${safeTitle}.docx`;
+                link.click();
+                URL.revokeObjectURL(blobUrl);
+
+                $('detailStatus').textContent = 'Document Word (.docx) téléchargé avec succès.';
+                $('detailStatus').classList.remove('hidden');
+            } catch (err) {
+                console.warn('Erreur API Word, génération du fichier Word de secours...', err);
+                generateLocalWordFallback(meeting, meetingTasks);
+                $('detailStatus').textContent = 'Document Word généré avec succès.';
+                $('detailStatus').classList.remove('hidden');
+            } finally {
+                exportBtn.innerHTML = originalText;
+                exportBtn.disabled = false;
+            }
+        }
+
+        $('detailExportPdf')?.addEventListener('click', () => {
+            const meeting = meetings.find((m) => m.id === activeMeetingId);
+            if (!meeting) return;
+            const meetingTasks = tasks.filter((t) => t.meetingId === activeMeetingId);
+            const html = generatePdfHtml(meeting, meetingTasks);
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                $('detailStatus').textContent = 'Autorisez les fenêtres contextuelles pour exporter le PDF.';
+                $('detailStatus').classList.remove('hidden');
+                return;
+            }
+            printWindow.document.open();
+            printWindow.document.write(html);
+            printWindow.document.close();
+            printWindow.onload = () => {
+                setTimeout(() => {
+                    printWindow.focus();
+                    printWindow.print();
+                }, 300);
+            };
+        });
+
+        $('detailExportWord')?.addEventListener('click', () => {
+            const meeting = meetings.find((m) => m.id === activeMeetingId);
+            if (!meeting) return;
+            const meetingTasks = tasks.filter((t) => t.meetingId === activeMeetingId);
+            exportMeetingToWord(meeting, meetingTasks);
+        });
+
+        $('detailMarkdown').addEventListener('click', () => {
+            const meeting = meetings.find((item) => item.id === activeMeetingId);
+            const markdown = `# ${meeting?.title || 'Compte-rendu'}\n\n${meeting?.date || ''}${meeting?.participants ? ` · ${meeting.participants}` : ''}\n\n## Résumé exécutif\n\n${meeting?.summary || 'Aucun résumé disponible.'}\n\n## Actions à mener\n\n${meeting?.actions?.length ? meeting.actions.map((action) => `- ${action}`).join('\n') : 'Aucune action spécifique identifiée.'}${meeting?.transcript ? `\n\n## Transcription\n\n${meeting.transcript}` : ''}`;
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }));
+            link.download = 'compte-rendu.md'; link.click(); URL.revokeObjectURL(link.href);
+        });
+        $('detailDownload').addEventListener('click', () => {
+            const meeting = meetings.find((item) => item.id === activeMeetingId);
+            const blobUrl = URL.createObjectURL(new Blob([reportText], { type: 'text/plain;charset=utf-8' }));
+            const link = document.createElement('a');
+            link.href = blobUrl; link.download = `${(meeting?.title || 'compte-rendu').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'compte-rendu'}.txt`;
+            link.click(); URL.revokeObjectURL(blobUrl);
+        });
+
+        function renderTasks() {
+            const ownerSelect = $('ownerFilter');
+            const selectedOwner = ownerSelect.value || 'all';
+            ownerSelect.innerHTML = '<option value="all">Toute l’équipe</option>' + team.map((member) => `<option value="${escapeHtml(member.name)}">${escapeHtml(member.name)}</option>`).join('');
+            ownerSelect.value = team.some((member) => member.name === selectedOwner) ? selectedOwner : 'all';
+            const statusFilter = $('taskFilter').value;
+            const query = $('taskSearch').value.trim().toLocaleLowerCase('fr');
+            const visible = tasks.filter((task) => (statusFilter === 'all' || task.status === statusFilter) && (ownerSelect.value === 'all' || task.owner === ownerSelect.value) && `${task.text} ${task.owner} ${task.status} ${meetings.find((m) => m.id === task.meetingId)?.title || ''}`.toLocaleLowerCase('fr').includes(query));
+            $('taskList').innerHTML = visible.length ? visible.map((task) => `<article class="grid gap-3 rounded-xl border bg-white p-4 shadow-sm lg:grid-cols-[1fr_140px_140px_140px_130px]"><div><p class="font-medium">${escapeHtml(task.text)}</p><p class="mt-1 text-xs text-slate-500">Réunion : ${escapeHtml(meetings.find((m) => m.id === task.meetingId)?.title || 'Réunion supprimée')}</p></div><label class="text-xs font-medium">Responsable<select data-task-owner="${escapeHtml(task.id)}" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5"><option value="">Non attribué</option>${team.map((member) => `<option ${task.owner === member.name ? 'selected' : ''} value="${escapeHtml(member.name)}">${escapeHtml(member.name)}</option>`).join('')}</select></label><label class="text-xs font-medium">Échéance<input data-task-due="${escapeHtml(task.id)}" type="date" value="${escapeHtml(task.due || '')}" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5"></label><label class="text-xs font-medium">Priorité<select data-task-priority="${escapeHtml(task.id)}" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5"><option ${task.priority === 'Basse' ? 'selected' : ''}>Basse</option><option ${!task.priority || task.priority === 'Normale' ? 'selected' : ''}>Normale</option><option ${task.priority === 'Haute' ? 'selected' : ''}>Haute</option></select></label><label class="text-xs font-medium">Statut<select data-task-status="${escapeHtml(task.id)}" class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5"><option ${task.status === 'À faire' ? 'selected' : ''}>À faire</option><option ${task.status === 'En cours' ? 'selected' : ''}>En cours</option><option ${task.status === 'Terminé' ? 'selected' : ''}>Terminé</option></select></label></article>`).join('') : '<div class="rounded-xl border bg-white p-6 text-sm text-slate-600"><p>Aucune action ne correspond à ces filtres.</p><button type="button" id="clearTaskFilters" class="mt-3 font-medium text-indigo-700 hover:underline">Effacer la recherche et les filtres</button></div>';
+            $('clearTaskFilters')?.addEventListener('click', () => { $('taskSearch').value = ''; $('taskFilter').value = 'all'; $('ownerFilter').value = 'all'; renderTasks(); });
+            document.querySelectorAll('[data-task-owner]').forEach((input) => input.addEventListener('change', () => updateTask(input.dataset.taskOwner, 'owner', input.value)));
+            document.querySelectorAll('[data-task-due]').forEach((input) => input.addEventListener('change', () => updateTask(input.dataset.taskDue, 'due', input.value)));
+            document.querySelectorAll('[data-task-status]').forEach((input) => input.addEventListener('change', () => updateTask(input.dataset.taskStatus, 'status', input.value)));
+            document.querySelectorAll('[data-task-priority]').forEach((input) => input.addEventListener('change', () => updateTask(input.dataset.taskPriority, 'priority', input.value)));
+        }
+        async function updateTask(id, property, value) { const task = tasks.find((item) => item.id === id); if (task) { task[property] = value; try { await sbUpdateTask(task); } catch (e) { window.alert('Erreur lors de la mise à jour.'); return; } renderTasks(); } }
+        $('taskFilter').addEventListener('change', renderTasks);
+        $('ownerFilter').addEventListener('change', renderTasks);
+        $('taskSearch').addEventListener('input', renderTasks);
+        $('exportTasks').addEventListener('click', () => {
+            const rows = [['Action', 'Réunion', 'Responsable', 'Échéance', 'Priorité', 'Statut'], ...tasks.map((task) => [task.text, meetings.find((meeting) => meeting.id === task.meetingId)?.title || 'Réunion supprimée', task.owner || '', task.due || '', task.priority || 'Normale', task.status || 'À faire'])];
+            const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(';')).join('\r\n');
+            const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
+            const link = document.createElement('a'); link.href = url; link.download = 'actions-callscribe.csv'; link.click(); URL.revokeObjectURL(url);
+        });
+
+        function renderTeam() {
+            $('teamList').innerHTML = team.length ? team.map((member) => `<article class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-4"><div><p class="font-semibold">${escapeHtml(member.name)}</p><p class="text-sm text-slate-500">${escapeHtml(member.email || 'Aucune adresse e-mail')}</p></div><button class="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50" data-remove-member="${escapeHtml(member.id)}">Retirer</button></article>`).join('') : '<p class="rounded-xl border bg-white p-6 text-sm text-slate-500">Ajoutez des membres pour pouvoir leur attribuer des actions.</p>';
+            document.querySelectorAll('[data-remove-member]').forEach((button) => button.addEventListener('click', async () => {
+                const member = team.find((item) => item.id === button.dataset.removeMember);
+                if (!member || !window.confirm(`Retirer ${member.name} de l’équipe ? Ses actions seront désattribuées.`)) return;
+                team = team.filter((item) => item.id !== button.dataset.removeMember);
+                const affected = tasks.filter((task) => member && task.owner === member.name);
+                tasks.forEach((task) => { if (member && task.owner === member.name) task.owner = ''; });
+                try {
+                    await sbDeleteTeamMember(member.id);
+                    await Promise.all(affected.map((t) => sbUpdateTask(t)));
+                } catch (e) { window.alert('Erreur lors de la suppression.'); return; }
+                renderTeam();
+            }));
+        }
+        $('teamForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const name = $('memberName').value.trim();
+            if (!name) { $('memberName').focus(); return; }
+            if (team.some((member) => member.name.toLocaleLowerCase('fr') === name.toLocaleLowerCase('fr'))) { window.alert('Ce membre figure déjà dans l’équipe.'); return; }
+            const member = { id: crypto.randomUUID(), name, email: $('memberEmail').value.trim() };
+            team.push(member);
+            try { await sbInsertTeamMember(member); } catch (e) { window.alert('Erreur lors de l\'ajout.'); team = team.filter((m) => m.id !== member.id); return; }
+            $('teamForm').reset(); renderTeam();
+        });
+
+        $('settingLanguage').value = settings.language || 'fr';
+        $('settingFormat').value = settings.format || 'concise';
+
+        // Vérification automatique et discrète de l'état du service
+        async function checkBackendStatus() {
+            const dot = $('serviceStatusDot');
+            const text = $('serviceStatusText');
+            if (!dot || !text) return;
+            try {
+                const healthUrl = (window.location.protocol.startsWith('http'))
+                    ? `${window.location.origin}/api/health`
+                    : 'http://127.0.0.1:8000/api/health';
+                const res = await fetch(healthUrl, { method: 'GET' });
+                if (res.ok) {
+                    dot.className = 'h-2.5 w-2.5 rounded-full bg-emerald-500';
+                    text.textContent = 'Moteur IA connecté et opérationnel';
+                    text.className = 'text-sm font-medium text-emerald-700';
+                } else {
+                    dot.className = 'h-2.5 w-2.5 rounded-full bg-amber-500';
+                    text.textContent = 'Service d’analyse en cours d’initialisation';
+                    text.className = 'text-sm font-medium text-amber-700';
+                }
+            } catch (err) {
+                dot.className = 'h-2.5 w-2.5 rounded-full bg-slate-400';
+                text.textContent = 'Serveur non détecté (lancez run_backend.bat)';
+                text.className = 'text-sm font-medium text-slate-500';
+            }
+        }
+        checkBackendStatus();
+
+        $('settingsForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            settings = { language: $('settingLanguage').value, format: $('settingFormat').value };
+            try { await sbSaveSettings(); } catch (e) { window.alert('Erreur lors de l\'enregistrement.'); return; }
+            $('settingsStatus').textContent = 'Préférences enregistrées avec succès.';
+            window.setTimeout(() => { $('settingsStatus').textContent = ''; }, 3000);
+        });
+
+        const form = $('uploadForm');
+        const audioInput = $('audioFile');
+        function showError(message) { $('errorMessage').textContent = message; $('errorMessage').classList.remove('hidden'); }
+        function formatFileSize(bytes) {
+            if (!bytes) return '0 Ko';
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+            return `${(bytes / (1024 * 1024)).toFixed(2)} Mo`;
+        }
+        function clearPreview() {
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            previewUrl = null;
+            audioInput.value = '';
+            $('fileDetails').classList.add('hidden');
+            $('audioPreview').classList.add('hidden');
+            $('audioPreview').removeAttribute('src');
+            $('fileName').textContent = '';
+        }
+        function validateAudio(file) {
+            if (!file) return 'Veuillez sélectionner ou enregistrer un fichier audio.';
+            const ext = (file.name || '').split('.').pop().toLowerCase();
+            if (!ALLOWED_EXTENSIONS.includes(ext)) return 'Format non pris en charge. Formats acceptés : MP3, WAV, M4A, WEBM, OGG.';
+            if (file.size > MAX_FILE_SIZE) return 'Le fichier dépasse la limite de 50 Mo.';
+            if (!file.size) return 'Le fichier sélectionné est vide.';
+            return '';
+        }
+        function selectFile(file, isRecorded = false) {
+            const error = validateAudio(file);
+            if (error) { clearPreview(); showError(error); return; }
+            $('errorMessage').classList.add('hidden');
+            clearPreview();
+            const transfer = new DataTransfer();
+            transfer.items.add(file);
+            audioInput.files = transfer.files;
+            $('fileBadge').textContent = isRecorded ? '🎙️ Enregistrement micro' : '📁 Fichier prêt';
+            $('fileBadge').className = isRecorded
+                ? 'rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800'
+                : 'rounded bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700';
+            $('fileName').textContent = `${file.name} · ${formatFileSize(file.size)}`;
+            $('fileDetails').classList.remove('hidden');
+            previewUrl = URL.createObjectURL(file);
+            $('audioPreview').src = previewUrl;
+            $('audioPreview').classList.remove('hidden');
+        }
+        audioInput.addEventListener('change', () => { if (audioInput.files[0]) selectFile(audioInput.files[0]); });
+        const dropZone = $('dropZone');
+        ['dragenter', 'dragover'].forEach((name) => dropZone.addEventListener(name, (event) => { event.preventDefault(); dropZone.classList.add('border-indigo-500', 'bg-indigo-50'); }));
+        ['dragleave', 'drop'].forEach((name) => dropZone.addEventListener(name, (event) => { event.preventDefault(); dropZone.classList.remove('border-indigo-500', 'bg-indigo-50'); }));
+        dropZone.addEventListener('drop', (event) => { if (event.dataTransfer.files[0]) selectFile(event.dataTransfer.files[0]); });
+        $('removeFileBtn').addEventListener('click', () => {
+            clearPreview();
+            $('errorMessage').classList.add('hidden');
+            if (typeof resetRecorderUI === 'function') resetRecorderUI();
+        });
+
+        // ================= GESTION DES ONGLETS AUDIO =================
+        function switchAudioMode(mode) {
+            const isUpload = mode === 'upload';
+            $('tabUploadBtn').classList.toggle('bg-white', isUpload);
+            $('tabUploadBtn').classList.toggle('text-indigo-700', isUpload);
+            $('tabUploadBtn').classList.toggle('shadow-sm', isUpload);
+            $('tabUploadBtn').classList.toggle('text-slate-600', !isUpload);
+            $('tabUploadBtn').setAttribute('aria-selected', String(isUpload));
+
+            $('tabRecordBtn').classList.toggle('bg-white', !isUpload);
+            $('tabRecordBtn').classList.toggle('text-indigo-700', !isUpload);
+            $('tabRecordBtn').classList.toggle('shadow-sm', !isUpload);
+            $('tabRecordBtn').classList.toggle('text-slate-600', isUpload);
+            $('tabRecordBtn').setAttribute('aria-selected', String(!isUpload));
+
+            $('panelUpload').classList.toggle('hidden', !isUpload);
+            $('panelRecord').classList.toggle('hidden', isUpload);
+        }
+        $('tabUploadBtn').addEventListener('click', () => switchAudioMode('upload'));
+        $('tabRecordBtn').addEventListener('click', () => switchAudioMode('record'));
+
+        // ================= ENREGISTREMENT MICRO EN DIRECT =================
+        let mediaRecorder = null;
+        let audioStream = null;
+        let audioChunks = [];
+        let audioContext = null;
+        let analyserNode = null;
+        let visualizerAnimId = null;
+        let recordDuration = 0;
+        let recordInterval = null;
+        let isRecording = false;
+        let isPaused = false;
+
+        function getOptimalMimeType() {
+            const candidates = [
+                'audio/webm;codecs=opus',
+                'audio/webm',
+                'audio/ogg;codecs=opus',
+                'audio/ogg',
+                'audio/mp4',
+                'audio/wav'
+            ];
+            for (const mime of candidates) {
+                if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mime)) {
+                    return mime;
+                }
+            }
+            return '';
+        }
+
+        function formatDuration(sec) {
+            const m = Math.floor(sec / 60);
+            const s = sec % 60;
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function updateTimerDisplay() {
+            $('recordTimer').textContent = formatDuration(recordDuration);
+        }
+
+        function startTimer() {
+            clearInterval(recordInterval);
+            recordInterval = setInterval(() => {
+                recordDuration += 1;
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            clearInterval(recordInterval);
+        }
+
+        function drawVisualizer() {
+            const canvas = $('recordVisualizer');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            if (!analyserNode) {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, width, height);
+                return;
+            }
+
+            const bufferLength = analyserNode.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            function render() {
+                visualizerAnimId = requestAnimationFrame(render);
+                analyserNode.getByteFrequencyData(dataArray);
+
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, width, height);
+
+                const barCount = 32;
+                const barWidth = Math.floor(width / barCount) - 2;
+                const step = Math.max(1, Math.floor(bufferLength / barCount));
+
+                for (let i = 0; i < barCount; i++) {
+                    const value = dataArray[i * step] || 0;
+                    const percent = value / 255;
+                    const barHeight = Math.max(4, percent * (height - 8));
+                    const x = i * (barWidth + 2) + 1;
+                    const y = (height - barHeight) / 2;
+
+                    ctx.fillStyle = isPaused ? '#64748b' : (percent > 0.65 ? '#ef4444' : '#6366f1');
+                    if (ctx.roundRect) {
+                        ctx.beginPath();
+                        ctx.roundRect(x, y, barWidth, barHeight, 2);
+                        ctx.fill();
+                    } else {
+                        ctx.fillRect(x, y, barWidth, barHeight);
+                    }
+                }
+            }
+            render();
+        }
+
+        function stopVisualizer() {
+            if (visualizerAnimId) {
+                cancelAnimationFrame(visualizerAnimId);
+                visualizerAnimId = null;
+            }
+            const canvas = $('recordVisualizer');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        function stopAudioStreams() {
+            if (audioStream) {
+                audioStream.getTracks().forEach((track) => track.stop());
+                audioStream = null;
+            }
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close().catch(() => {});
+                audioContext = null;
+            }
+            analyserNode = null;
+            stopVisualizer();
+            pauseTimer();
+        }
+
+        function resetRecorderUI() {
+            isRecording = false;
+            isPaused = false;
+            recordDuration = 0;
+            updateTimerDisplay();
+            stopAudioStreams();
+            $('recordIdleState').classList.remove('hidden');
+            $('recordActiveState').classList.add('hidden');
+            $('recordStatusText').textContent = 'Enregistrement en direct...';
+            $('recordIndicator').className = 'h-3 w-3 rounded-full bg-red-600 animate-ping';
+            $('pauseRecordBtn').textContent = '⏸️ Pause';
+        }
+
+        async function startRecording() {
+            $('errorMessage').classList.add('hidden');
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showError("Votre navigateur ne permet pas l'enregistrement audio direct.");
+                return;
+            }
+
+            try {
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            } catch (err) {
+                let msg = "Impossible d'accéder au microphone.";
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    msg = "Accès au microphone refusé. Autorisez le micro dans les réglages de votre navigateur.";
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    msg = "Aucun microphone détecté sur cet appareil.";
+                }
+                showError(msg);
+                return;
+            }
+
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) {
+                    audioContext = new AudioCtx();
+                    const source = audioContext.createMediaStreamSource(audioStream);
+                    analyserNode = audioContext.createAnalyser();
+                    analyserNode.fftSize = 128;
+                    source.connect(analyserNode);
+                    drawVisualizer();
+                }
+            } catch (e) {
+                console.warn("Visualiseur audio non initialisé:", e);
+            }
+
+            const mimeType = getOptimalMimeType();
+            const options = mimeType ? { mimeType } : undefined;
+            audioChunks = [];
+
+            try {
+                mediaRecorder = new MediaRecorder(audioStream, options);
+            } catch (e) {
+                mediaRecorder = new MediaRecorder(audioStream);
+            }
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                if (audioChunks.length === 0) return;
+                const blobType = mediaRecorder.mimeType || 'audio/webm';
+                const audioBlob = new Blob(audioChunks, { type: blobType });
+                
+                const ext = blobType.includes('ogg') ? 'ogg' : (blobType.includes('wav') ? 'wav' : (blobType.includes('mp4') ? 'm4a' : 'webm'));
+                const now = new Date();
+                const pad = (n) => String(n).padStart(2, '0');
+                const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}h${pad(now.getMinutes())}`;
+                const fileName = `Reunion_Micro_${timestamp}.${ext}`;
+                const recordedFile = new File([audioBlob], fileName, { type: blobType });
+                
+                selectFile(recordedFile, true);
+                resetRecorderUI();
+            };
+
+            mediaRecorder.start(250);
+            isRecording = true;
+            isPaused = false;
+            recordDuration = 0;
+            updateTimerDisplay();
+            startTimer();
+
+            $('recordIdleState').classList.add('hidden');
+            $('recordActiveState').classList.remove('hidden');
+        }
+
+        function pauseRecording() {
+            if (!mediaRecorder || !isRecording) return;
+            if (isPaused) {
+                mediaRecorder.resume();
+                if (audioContext && audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                isPaused = false;
+                startTimer();
+                $('pauseRecordBtn').textContent = '⏸️ Pause';
+                $('recordStatusText').textContent = 'Enregistrement en direct...';
+                $('recordIndicator').className = 'h-3 w-3 rounded-full bg-red-600 animate-ping';
+            } else {
+                mediaRecorder.pause();
+                isPaused = true;
+                pauseTimer();
+                $('pauseRecordBtn').textContent = '▶️ Reprendre';
+                $('recordStatusText').textContent = 'Enregistrement en pause';
+                $('recordIndicator').className = 'h-3 w-3 rounded-full bg-amber-500';
+            }
+        }
+
+        function stopRecording() {
+            if (!mediaRecorder || !isRecording) return;
+            isRecording = false;
+            mediaRecorder.stop();
+            stopAudioStreams();
+        }
+
+        function cancelRecording() {
+            audioChunks = [];
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.onstop = null;
+                try { mediaRecorder.stop(); } catch (e) {}
+            }
+            resetRecorderUI();
+        }
+
+        $('startRecordBtn').addEventListener('click', startRecording);
+        $('pauseRecordBtn').addEventListener('click', pauseRecording);
+        $('stopRecordBtn').addEventListener('click', stopRecording);
+        $('cancelRecordBtn').addEventListener('click', cancelRecording);
+
+        form.addEventListener('reset', () => {
+            clearPreview();
+            cancelRecording();
+            $('errorMessage').classList.add('hidden');
+            $('loader').classList.add('hidden');
+        });
+        function setStep(activeStep) {
+            [ $('stepUpload'), $('stepAnalyze'), $('stepResult') ].forEach((step, index) => {
+                const active = index <= activeStep;
+                step.classList.toggle('text-indigo-700', active); step.classList.toggle('text-slate-500', !active);
+                const icon = step.querySelector('.stepIcon'); icon.classList.toggle('bg-indigo-100', active); icon.classList.toggle('bg-slate-100', !active); icon.textContent = index < activeStep ? '✓' : String(index + 1);
+            });
+        }
+        function finishRequest() { $('loader').classList.add('hidden'); $('submitBtn').disabled = false; }
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            if ($('submitBtn').disabled) return;
+            $('errorMessage').classList.add('hidden');
+            if (isRecording) {
+                showError("Un enregistrement est en cours. Veuillez cliquer sur 'Terminer et valider' ou 'Annuler' avant de lancer l'analyse.");
+                return;
+            }
+            if (!form.reportValidity()) return;
+            const file = audioInput.files[0]; const validationError = validateAudio(file);
+            if (validationError) { showError(validationError); return; }
+            const titleKey = $('meetingTitle').value.trim().toLocaleLowerCase('fr');
+            const meetingDate = $('meetingDate').value;
+            if (meetings.some((meeting) => meeting.title.toLocaleLowerCase('fr') === titleKey && meeting.date === meetingDate) && !window.confirm('Une réunion avec ce titre et cette date existe déjà. Continuer l’analyse ?')) return;
+            const payload = new FormData(form);
+            payload.append('language', settings.language || 'fr'); payload.append('reportFormat', settings.format || 'concise');
+            $('loader').classList.remove('hidden'); $('submitBtn').disabled = true; setStep(0); $('uploadProgress').textContent = 'Préparation de l’envoi…';
+            const request = new XMLHttpRequest(); request.open('POST', API_ENDPOINT); request.timeout = 5 * 60 * 1000;
+            request.upload.addEventListener('progress', (e) => { if (e.lengthComputable) $('uploadProgress').textContent = `Envoi du fichier : ${Math.round((e.loaded / e.total) * 100)} %`; });
+            request.upload.addEventListener('load', () => { setStep(1); $('uploadProgress').textContent = 'Fichier envoyé. Transcription et analyse en cours…'; });
+            request.addEventListener('load', async () => {
+                if (request.status < 200 || request.status >= 300) { showError(`Le serveur a répondu avec le statut ${request.status}.`); finishRequest(); return; }
+                let data; try { data = JSON.parse(request.responseText); } catch { showError('La réponse du serveur n’est pas au format JSON attendu.'); finishRequest(); return; }
+                setStep(2);
+                const rawActions = Array.isArray(data.actions) ? data.actions : [];
+                const actions = rawActions.map((action) => typeof action === 'string' ? action : (action?.text || action?.action || JSON.stringify(action)));
+                const meeting = { id: crypto.randomUUID(), title: $('meetingTitle').value.trim(), date: $('meetingDate').value, participants: $('participants').value.trim(), summary: String(data.summary || data.summary_executif || 'Aucun résumé disponible.'), actions, transcript: String(data.transcript || data.transcription || ''), createdAt: Date.now() };
+                meetings.push(meeting);
+                const newTasks = actions.map((text) => ({ id: crypto.randomUUID(), meetingId: meeting.id, text, owner: '', due: '', priority: 'Normale', status: 'À faire' }));
+                tasks.push(...newTasks);
+                try {
+                    await sbInsertMeeting(meeting);
+                    await Promise.all(newTasks.map((t) => sbInsertTask(t)));
+                } catch (e) { showError('Erreur lors de la sauvegarde dans Supabase.'); finishRequest(); return; }
+                finishRequest(); openMeeting(meeting.id);
+            });
+            request.addEventListener('error', () => { showError('Le service d’analyse est temporairement inaccessible. Assurez-vous que le serveur local est bien lancé.'); finishRequest(); });
+            request.addEventListener('timeout', () => { showError('L’analyse a dépassé le délai d’attente. Veuillez réessayer.'); finishRequest(); });
+            request.send(payload);
+        });
+        renderDashboard();
+    </script>
+    </div>
+</body>
+</html>
